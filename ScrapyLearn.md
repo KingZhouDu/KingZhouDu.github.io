@@ -18,7 +18,7 @@
 4. 爬虫运行命令
     ```
     #   运行爬虫 输出保存到 文件名.csv 文件中
-    scrapy crawl [爬虫名称] -o 文件名.csv
+    scrapy crawl [爬虫名称] -o 文件名.csv[支持：csv\json\xml 三种文本文件]
     ```
 5. 获取当前环境中安装的第三方库列表
     - 方式一：直接输出到控制台```pip list```或者```pip freeze```
@@ -35,7 +35,7 @@ class [爬虫名称]Item():
 ```
 ### spiders目录（蜘蛛程序所在目录文件）
 爬虫名称.py文件结构：
-- 第一种构造方式：（在响应中获取新url实现翻页）
+1. 第一种构造方式：（在响应中获取新url实现翻页）
 ```
 import scrapy
 #   导入items对象 用于数据组装
@@ -68,7 +68,7 @@ class 爬虫名称Spider(scrapy.Spider):
             #   使用生成器生成新的Request请求交给引擎做下一步请求（注意：调度器会自动过滤已爬取页面）
             yield Request(url=url)
 ```
-- 第二种构造方式：（无起始页，直接构造请求页面）
+2. 第二种构造方式：（无起始页，直接构造请求页面）
 ```
 import scrapy
 from scrapy import Request
@@ -97,6 +97,39 @@ class 爬虫名称Spider(scrapy.Spider):
             #   详细解析方式参见文档：('Select')['https://www.osgeo.cn/scrapy/topics/selectors.html']
             #   将解析到的界面数据装入生成器中
             yield list_item
+```
+3. 层级结构请求数据爬取
+```
+class 爬虫名称Spider(scrapy.Spider):
+    name = '爬虫名称'
+    allowed_domains = ['限制爬取域名列表']
+
+    # 不使用起始页，使用start_requests直接构造所有请求页面
+    def start_requests(self):
+        for page in range(总页数):
+            yield Request(url = "https://www.xxx.com?page={page}",meta={'proxy':'代理地址(实例：socks://127.0.0.1:端口)'})
+
+    #   解析器 response是返回对象
+    def parse(self, response: HtmlResponse):
+        #   实例化item对象
+        list_item = [爬虫名称]Item()
+        #   将返回的对象放入[选择器对象]用于解析
+        sel = Selector(response)
+        list_items = sel.css('css解析')
+        #   循环获取响应数据列表
+        for list in list_items:
+            list_item["item对象_1"] = sel.css('使用css解析').extract_first()
+            #   详细解析方式参见文档：('Select')['https://www.osgeo.cn/scrapy/topics/selectors.html']
+            #   将解析到的界面数据装入生成器中
+            yield Request(url=解析到的新请求url,callback=self.自定义解析函数,cb_kwargs={"item":已解析到的数据list_item})
+
+    def 自定义解析函数(self,response,**kwargs):
+        new_item = kwargs["item"]
+        #  解析数据
+        sel = Selector(response)
+        list_items = sel.css('css解析')
+        ……
+        yield new_item;
 ```
 ### pipelines.py文件 管道文件 用于数据持久化（需先在settings.py文件中打开管道）
 1. 写入数据库
@@ -216,8 +249,8 @@ class Pipeline_Mysql:
             )   #   注意：这是一个事务 最有要使用commit提交才会持久化到数据库
             self.conn.commit()  #   提交数据
 ```
-### middlewares.py中间件（需先在settings.py文件中打开中间件）
-1. 在中间件中设置代理
+### middlewares.py中间件：下载中间件和蜘蛛中间件两个类（需先在settings.py文件中打开中间件）
+1. 在下载中间件中设置代理
 ```
 #   下载中间件
 class ChanxiaohongDownloaderMiddleware:
@@ -226,6 +259,118 @@ class ChanxiaohongDownloaderMiddleware:
         #   从这里设置请求代理
         request.meta = {'proxy':''}
         return None
+```
+2. 在下载中间件中设置cookies
+```
+#   下载中间件
+class ChanxiaohongDownloaderMiddleware:
+    #   请求处理方法 发送的所有请求将被从这里别拦截处理后再发出 Hook
+    def process_request(self, request: Request, spider):
+        #   从这里设置请求代理
+        request.cookies = {cookie字典}
+        return None
+```
+3. 在下载中间件中使用seleniunm模拟登录
+```
+#   导包
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.keys import Keys
+
+#   selenium创建chrome浏览器 并配置浏览器参数
+def create_chrome_driver(*,headless=Fasle):
+    option = Options()
+    if headless:
+        #   设置无头浏览器
+        option.add_argument('--headless')
+        option.add_argument('--disable-gpu')
+    #   下载在线安装浏览器驱动
+    service = Service(executable_path=ChromeDriverManager().install())
+    option.add_experimental_option("excludeSwitches",["enable-automation"])
+    option.add_experimental_option("useAutomationExtension",False)
+    browser = webdriver.Chrome(options=option, service=service)
+    #   执行chrome开发者协议中的脚本命令 当页面加载时找到chrome浏览器的navigator对象，并对象webdriver属性设置成undefined
+    browser.excute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument',{'source':'Object.defineProperty(navigator,"webdriver",{get: () => undefined})'})
+    #   返回谷歌浏览器对象
+    return browser
+
+#   模拟登录 获取cookies
+def login(browser,url):
+    browser.get(url)
+    WebDriverWait(browser, 30).until(EC.presence_of_element_located((By.[定位方式], "账号输入框位置")))[1].send_keys(data['username'])  # 输入账号
+    WebDriverWait(browser, 30).until(EC.presence_of_element_located((By.[定位方式], "密码输入框位置")))[1].send_keys(data['username'])  # 输入账号
+    WebDriverWait(browser, 30).until(EC.presence_of_element_located((By.[定位方式], "登录按钮位置"))).send_keys(Keys.ENTER)  # 点击登录
+    WebDriverWait(browser, 30).until(EC.presence_of_element_located((By.[定位方式], "个人信息")))   #   定位到个人信息表示登录成功
+    #   获取cookies 并写入json文件
+    with open('cookies.json','w') as file:
+        json.dump(browser.get_cookies(),file)
+
+#   读取json文件并 加载到浏览器中
+def add_cookies(browser,cookie_file):
+    with open(cookie_file,'r') as file:
+        cookies_list = json.load(file)
+        for cookie_dict in cookies_list:
+            if cookie_dict['secure']
+                browser.add_cookie(cookie_dict)
+#   spider类代码
+class [爬虫名称]Spider(scrapy.Spider):
+    name = '爬虫名称'
+    allowed_domains = ['限制域名.com']
+
+    def start_requests(self):
+        keywords = ["关键词1","关键词2","关键词3",……]
+        for keyword in keywords:
+            for page in range(爬取页数):
+                url = f'https://爬取地址.com?参数关键词={keyword}&页码参数={page * 每页数量}'
+                yield scrapy.Request(url=url)   # 使用生成的种子url 发送请求
+
+    #   这里获得的response如果是使用JS加载的 则借助selenium在下载中间中拦截响应 渲染完成后再返回（重点）
+    def parse(self, response: HtmlResponse):
+        #   实例化item对象
+        list_item = [爬虫名称]Item()
+        #   将返回的对象放入[选择器对象]用于解析
+        sel = Selector(response)
+        list_items = sel.css('css解析')
+        #   循环获取响应数据列表
+        for list in list_items:
+            list_item["item对象_1"] = sel.css('使用css解析').extract_first()
+            #   详细解析方式参见文档：('Select')['https://www.osgeo.cn/scrapy/topics/selectors.html']
+            #   将解析到的界面数据装入生成器中
+            yield Request(url=解析到的新请求url,callback=self.自定义解析函数,cb_kwargs={"item":已解析到的数据list_item})
+
+    #   这里获得的response如果是使用JS加载的 则借助selenium在下载中间中拦截响应 渲染完成后再返回（重点）
+    def 自定义解析函数(self,response,**kwargs):
+        new_item = kwargs["item"]
+        #  解析数据
+        sel = Selector(response)
+        list_items = sel.css('css解析')
+        ……
+        yield new_item;
+
+#   下载中间件拦截处理请求
+class ChanxiaohongDownloaderMiddleware:
+    #   类初始化
+    def __init__(self):
+        self.browser = create_chrome_driver(headless = True)  
+        login(self.browser,'https://登录页地址')
+        add_cookies(self.browser,'cookies文件名')
+
+    #   爬虫结束运行Hook
+    def __del__(self,spider):
+        self.browser.close()
+        self.browser.quit()
+
+    #   请求处理方法 发送的所有请求将被从这里别拦截处理后再返回
+    def process_request(self, request: Request, spider):
+        #   拦截请求 使用selenium发送请求
+        self.browser.get(request.url)
+        #   返回 selenium 获取动态加载的源码 使用page_source获取
+        return HtmlRespense(url=request.url,body=self.browser.page_source,request=request,encoding='utf-8')
 ```
 ### settings.py设置
 ```
@@ -244,4 +389,21 @@ ITEM_PIPELINES = {
    "chanxiaohong.pipelines.Pipeline_Excel": 300,
    "chanxiaohong.pipelines.Pipeline_Mysql": 300,
 }
+# 下载中间件配置 可配置多个 值越小优先级越高
+DOWNLOADER_MIDDLEWARES = {
+   "chanxiaohong.middlewares.ChanxiaohongDownloaderMiddleware": 543,
+}
 ```
+### 在settings.py文件中设置自定义配置参数
+1.  配置数据库连接参数
+DB_HOST = '数据库连接地址'
+DB_PORT = '端口号'
+DB_USER = '用户名'
+DB_PASS = '密码'
+DB_NAME = '数据库名'
+2. 配置ip地址池
+IP_POOL = ['地址1','地址2','地址3',……]
+3. 配置请求头USER_AGENT
+USER_AGENTS = ['地址1','地址2','地址3',……]
+4. 配置读取方式:在其他文件中读取配置
+crawler.settings['配置名称：例如：DB_HOST']
