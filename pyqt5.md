@@ -1,4 +1,61 @@
 # pyqt5笔记
+### QtCore − 其他模块使用的核心非 GUI 类
+### QtGui − 图形用户界面组件
+### QtMultimedia − 低级多媒体编程类
+### QtNetwork − 网络编程类
+### QtOpenGL − OpenGL 支持类
+### QtScript − 用于评估 Qt 脚本的类
+### QtSql − 使用 SQL 进行数据库集成的类
+### QtSvg − 显示 SVG 文件内容的类
+### QtWebKit − 用于呈现和编辑 HTML 的类
+### QtXml − 处理 XML 的类
+
+### QtWidgets − 用于创建经典桌面风格 UI 的类
+- QWidget 的子类：QDialog 和 QFrame 类
+- QWidget派生出的常用小部件：  
+    1. QLabel：显示文本或图像
+    2. QLineEdit：单行文本输入框
+    3. QTextEdit：多行文本输入框
+    4. QPushButton：按钮
+    5. QRadioButton：单选或多选按钮
+    6. QCheckBox：复选框按钮
+    7. QComboBox：下拉列表
+    8. QSpinBox：带有向上/向下调整数值按钮的文本框
+    9. QScrollBar：滚动条
+    10. QSlider：带滑块的标尺
+    11. QMenuBar：菜单栏的小部件 可创建子菜单
+    12. QStatusBar：底部状态栏
+    13. QToolBar：可移动工具栏面板
+    14. QListView：在 ListMode 或 IconMode 中提供可选择的项目列表
+    15. QPixmap：显示在 QLabel 或 QPushButton 对象上的屏幕外图像表示
+    16. QDialog：可以向父窗口返回信息的模态或非模态窗口 弹出对话框
+    17. QMessageBox：常用的模式对话框
+- QWidget类及子类样式设置方法：
+    QWidget.setStyleSheet("width: 200px; height: 20px; font-size: 10px; font-weight: bold")
+
+### QtDesigner − 用于扩展 Qt Designer 的类
+
+### 布局管理
+- 整体窗口位于桌面的布局：```QWidget.setGeometry(xpos, ypos, width, height)```
+- 三个常用布局类：
+    1. QBoxLayout类：垂直或水平排列小部件
+        - 子类：QVBoxLayout用于垂直排列小部件
+        - 子类：QHBoxLayout用于水平排列小部件  
+        #### 方法：  
+            addWidget()：将小部件添加到 BoxLayout  
+            addStretch()：创建空的可拉伸框  
+            addLayout()：添加另一个嵌套布局
+    2. QGridLayout类：以行和列排列的单元格网格，可指定单元格的行数和列数
+        #### 方法：
+            addWidget(QWidget, int r, int c)：指定的行和列添加一个小部件  
+            addWidget(QWidget, int r, int c, int rowspan, int columnspan)：指定的行和列添加一个小部件，并具有指定的宽度和/或高度
+            addLayout(QLayout, int r, int c)：在指定的行和列添加布局对象
+    3. QFormLayout类：创建两列表单的便捷布局方式
+        #### 方法：
+            addRow(QLabel, QWidget)：添加包含标签和输入字段的行  
+            addRow(QLabel, QLayout)：在第二列中添加子布局
+            addRow(QWidget)：添加一个跨越两列的小部件
+
 ### 信号与槽：对象.信号.connect(槽函数)
 1. 简单案例
 ```
